@@ -124,11 +124,18 @@
 
                 <div>
                     {% if is_paid %}
-                    <form action="{{ url_for('billing.create_customer_portal') }}" method="POST">
-                        <button type="submit" class="btn btn-warning w-100 py-2 fw-bold text-dark">
-                            <i class="fa-solid fa-gear me-1"></i> Manage Subscription & Portal
-                        </button>
-                    </form>
+                    <div class="d-grid gap-2">
+                        <form action="{{ url_for('billing.create_customer_portal') }}" method="POST">
+                            <button type="submit" class="btn btn-warning w-100 py-2 fw-bold text-dark">
+                                <i class="fa-solid fa-gear me-1"></i> Manage Subscription & Portal
+                            </button>
+                        </form>
+                        <form action="{{ url_for('billing.reset_demo_subscription') }}" method="POST">
+                            <button type="submit" class="btn btn-outline-secondary btn-sm w-100 py-1">
+                                <i class="fa-solid fa-rotate-left me-1"></i> Reset to Free Plan (Testing)
+                            </button>
+                        </form>
+                    </div>
                     {% else %}
                     <form action="{{ url_for('billing.create_checkout_session') }}" method="POST">
                         <button type="submit" class="btn btn-warning w-100 py-2 fw-bold text-dark shadow-sm">
@@ -140,6 +147,17 @@
             </div>
         </div>
     </div>
+
+    {% if not stripe_configured %}
+    <div class="row justify-content-center mb-4">
+        <div class="col-lg-9">
+            <div class="alert alert-info py-2 px-3 small text-center shadow-xs border-0">
+                <i class="fa-solid fa-circle-info me-1"></i>
+                <strong>Stripe Setup Note:</strong> Real credit card checkouts activate once you add <code>STRIPE_SECRET_KEY</code> and <code>STRIPE_PRICE_ID</code> in Render settings. Clicking <strong>Upgrade to Pro</strong> now instantly activates <strong>Demo Pro Mode</strong> so you can test unlimited AI consultations right away!
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Medical & Educational Disclaimer Card -->
     <div class="row justify-content-center">

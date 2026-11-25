@@ -28,6 +28,7 @@ def pricing_page():
     free_limit = Config.FREE_DAILY_CHAT_LIMIT
     daily_usage = db.get_daily_chat_usage(owner_id)
     remaining_messages = max(0, free_limit - daily_usage) if not is_paid else -1
+    stripe_configured = bool(Config.STRIPE_SECRET_KEY and Config.STRIPE_PRICE_ID)
 
     return render_template(
         'pricing.html',
@@ -37,19 +38,30 @@ def pricing_page():
         free_limit=free_limit,
         daily_usage=daily_usage,
         remaining_messages=remaining_messages,
+        stripe_configured=stripe_configured,
         stripe_publishable_key=Config.STRIPE_PUBLISHABLE_KEY,
         stripe_price_id=Config.STRIPE_PRICE_ID
     )
 
 @billing_bp.route('/subscribe/checkout', methods=['POST'])
 def create_checkout_session():
-    if not Config.STRIPE_SECRET_KEY or not Config.STRIPE_PRICE_ID:
-        flash("Stripe billing is not configured yet. Please check your environment variables.", "warning")
-        return redirect(url_for('billing.pricing_page'))
-
-    stripe.api_key = Config.STRIPE_SECRET_KEY
     owner_id = get_current_owner_id()
     subscription = db.get_owner_subscription(owner_id)
+
+    # If Stripe keys are not provided in environment variables, enable Demo Pro Mode immediately
+    if not Config.STRIPE_SECRET_KEY or not Config.STRIPE_PRICE_ID:
+        db.upsert_subscription(
+            owner_id=owner_id,
+            status='active',
+            stripe_customer_id='demo_customer',
+            stripe_subscription_id='demo_sub'
+        )
+        flash("🎉 Pro Subscription activated in Demo Mode! You now have unlimited AI Nutritionist chat across all family profiles. (To connect real Stripe credit card billing, add STRIPE_SECRET_KEY & STRIPE_PRICE_ID on Render).", "success")
+        if request.is_json:
+            return jsonify({'success': True, 'demo': True, 'redirect_url': url_for('main.chat_page')})
+        return redirect(url_for('main.chat_page'))
+
+    stripe.api_key = Config.STRIPE_SECRET_KEY
 
     checkout_kwargs = {
         'mode': 'subscription',
@@ -66,7 +78,7 @@ def create_checkout_session():
     }
 
     # Re-use existing customer ID if already established
-    if subscription.get('stripe_customer_id'):
+    if subscription.get('stripe_customer_id') and subscription.get('stripe_customer_id') != 'demo_customer':
         checkout_kwargs['customer'] = subscription['stripe_customer_id']
 
     try:
@@ -77,6 +89,13 @@ def create_checkout_session():
     except Exception as e:
         flash(f"Error starting checkout: {str(e)}", "danger")
         return redirect(url_for('billing.pricing_page'))
+
+@billing_bp.route('/subscribe/demo-reset', methods=['POST'])
+def reset_demo_subscription():
+    owner_id = get_current_owner_id()
+    db.upsert_subscription(owner_id=owner_id, status='free', stripe_customer_id=None, stripe_subscription_id=None)
+    flash("Subscription reset to Free Tier (5 daily messages).", "info")
+    return redirect(url_for('billing.pricing_page'))
 
 @billing_bp.route('/subscribe/success', methods=['GET'])
 def subscribe_success():
@@ -111,16 +130,12 @@ def subscribe_cancel():
 
 @billing_bp.route('/billing/portal', methods=['POST'])
 def create_customer_portal():
-    if not Config.STRIPE_SECRET_KEY:
-        flash("Stripe billing is not configured yet.", "warning")
-        return redirect(url_for('billing.pricing_page'))
-
     owner_id = get_current_owner_id()
     subscription = db.get_owner_subscription(owner_id)
 
     customer_id = subscription.get('stripe_customer_id')
-    if not customer_id:
-        flash("No active billing account found. Please subscribe to Pro first.", "warning")
+    if not customer_id or customer_id == 'demo_customer' or not Config.STRIPE_SECRET_KEY:
+        flash("You are currently using Demo Pro Mode. (Configure STRIPE_SECRET_KEY on Render to open the official Stripe Customer Portal).", "info")
         return redirect(url_for('billing.pricing_page'))
 
     try:
