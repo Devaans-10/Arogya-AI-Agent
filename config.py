@@ -17,6 +17,9 @@ class Config:
     elif os.environ.get('VERCEL') == '1':
         # Vercel serverless functions have a read-only filesystem, except for /tmp
         DATABASE = '/tmp/nutrition_agent.db'
+    elif os.environ.get('RENDER') == 'true' or os.environ.get('RENDER'):
+        # Render containers use /tmp for writable SQLite database
+        DATABASE = '/tmp/nutrition_agent.db'
     else:
         DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'nutrition_agent.db')
 
