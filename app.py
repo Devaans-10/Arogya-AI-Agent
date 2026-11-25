@@ -27,9 +27,11 @@ def create_app():
     # Register blueprints
     from routes.main import main_bp
     from routes.api import api_bp
+    from routes.billing import billing_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(billing_bp)
 
     return app
 

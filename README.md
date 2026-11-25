@@ -121,6 +121,76 @@ You can modify this system prompt to:
 
 ---
 
+## 💳 Subscriptions & Gating System
+
+The application includes a Stripe-powered subscription tier that gates the **AI Nutritionist Chat**:
+- **Free Users**: Get `5` free AI chat messages per day (`FREE_DAILY_CHAT_LIMIT`). Dashboard, Food Logger, BMI Calculator, Meal Planner, and Profiles remain 100% free with no limits.
+- **Pro Subscribers**: Get unlimited AI Nutritionist chat for the whole household account. Includes a Stripe Customer Portal to cancel or update payment methods anytime.
+- **Server-Side Enforcement**: Quota and subscription checks are strictly verified on the server. When the quota is exceeded, `/api/chat` returns HTTP `402` with `{"error": "upgrade_required"}` and the UI dynamically displays an upgrade prompt.
+
+### 1. Environment Variables
+
+Add these to your `.env` file (see `.env.example`):
+```env
+# Daily free chat quota (default 5)
+FREE_DAILY_CHAT_LIMIT=5
+
+# Stripe API Keys (from https://dashboard.stripe.com/apikeys)
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+
+# Webhook signing secret (from Stripe CLI or Stripe Dashboard)
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Recurring Subscription Price ID (from Stripe Products)
+STRIPE_PRICE_ID=price_...
+
+# Base URL for redirects (http://127.0.0.1:5000 locally or your Render domain in production)
+APP_BASE_URL=http://127.0.0.1:5000
+```
+
+### 2. Testing Stripe Webhooks Locally
+
+1. Install the [Stripe CLI](https://stripe.com/docs/stripe-cli).
+2. Authenticate:
+   ```bash
+   stripe login
+   ```
+3. Start forwarding webhook events to your local Flask app:
+   ```bash
+   stripe listen --forward-to localhost:5000/webhooks/stripe
+   ```
+4. Copy the webhook signing secret printed by the CLI (`whsec_...`) into your `.env` as `STRIPE_WEBHOOK_SECRET`.
+5. Trigger test events:
+   ```bash
+   stripe trigger checkout.session.completed
+   stripe trigger customer.subscription.deleted
+   stripe trigger invoice.payment_failed
+   ```
+
+### 3. Render Production Configuration
+
+When deploying on [Render](https://dashboard.render.com):
+1. In your Web Service settings, navigate to the **Environment** tab.
+2. Add the following environment variables:
+   - `FREE_DAILY_CHAT_LIMIT`: `5`
+   - `STRIPE_SECRET_KEY`: `sk_live_...` (or `sk_test_...`)
+   - `STRIPE_PUBLISHABLE_KEY`: `pk_live_...` (or `pk_test_...`)
+   - `STRIPE_PRICE_ID`: `price_...`
+   - `APP_BASE_URL`: `https://arogya-ai-agent.onrender.com`
+   - `STRIPE_WEBHOOK_SECRET`: Webhook signing secret created from the Render endpoint below.
+3. In your **Stripe Dashboard** -> **Developers** -> **Webhooks**:
+   - Add endpoint URL: `https://arogya-ai-agent.onrender.com/webhooks/stripe`
+   - Select events:
+     - `checkout.session.completed`
+     - `customer.subscription.created`
+     - `customer.subscription.updated`
+     - `customer.subscription.deleted`
+     - `invoice.payment_failed`
+   - Copy the signing secret (`whsec_...`) into Render's `STRIPE_WEBHOOK_SECRET`.
+
+---
+
 ## Deployment Instructions
 
 ### Option 1: Deploying on Render (Free Hosting)
@@ -134,10 +204,16 @@ You can modify this system prompt to:
 4. Set the following settings:
    - **Environment**: `Python`
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `gunicorn app:app`
-5. Go to **Environment** tab and add your key:
+   - **Start Command**: `gunicorn app:app` (or automatically picked up from `Procfile`)
+5. Go to **Environment** tab and add your keys:
    - `GOOGLE_API_KEY` = `your_gemini_api_key`
    - `SECRET_KEY` = `some_secure_random_hash`
+   - `FREE_DAILY_CHAT_LIMIT` = `5`
+   - `STRIPE_SECRET_KEY` = `sk_live_...`
+   - `STRIPE_PUBLISHABLE_KEY` = `pk_live_...`
+   - `STRIPE_WEBHOOK_SECRET` = `whsec_...`
+   - `STRIPE_PRICE_ID` = `price_...`
+   - `APP_BASE_URL` = `https://arogya-ai-agent.onrender.com`
 
 ### Option 2: Deploying on Google Cloud Run (Containerized)
 1. Create a `Dockerfile` in the root folder:

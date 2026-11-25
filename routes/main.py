@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash
 import database as db
+from routes.billing import get_current_owner_id
 
 main_bp = Blueprint('main', __name__)
 
@@ -50,12 +51,19 @@ def chat_page():
         active_profile = profiles[0]
         
     history = db.get_chat_history(active_profile['id'])
-    
+
+    owner_id = get_current_owner_id()
+    allowed_chat, remaining_messages, is_paid, free_limit = db.check_chat_quota(owner_id)
+
     return render_template(
         'chat.html',
         profiles=profiles,
         active_profile=active_profile,
-        chat_history=history
+        chat_history=history,
+        allowed_chat=allowed_chat,
+        remaining_messages=remaining_messages,
+        is_paid=is_paid,
+        free_daily_limit=free_limit
     )
 
 @main_bp.route('/meal-planner')

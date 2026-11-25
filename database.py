@@ -152,3 +152,149 @@ def add_nutrition_log(profile_id, calories, protein, carbs, fat, date):
     finally:
         conn.close()
     return success
+
+# --- SUBSCRIPTION & BILLING OPERATIONS ---
+
+def get_owner_subscription(owner_id):
+    conn = get_db_connection()
+    row = conn.execute("SELECT * FROM subscriptions WHERE owner_id = ?", (owner_id,)).fetchone()
+    conn.close()
+    if row:
+        return dict(row)
+    return {
+        'owner_id': owner_id,
+        'stripe_customer_id': None,
+        'stripe_subscription_id': None,
+        'status': 'free',
+        'current_period_end': None
+    }
+
+def upsert_subscription(owner_id, stripe_customer_id=None, stripe_subscription_id=None, status='active', current_period_end=None):
+    conn = get_db_connection()
+    existing = conn.execute("SELECT id, stripe_customer_id, stripe_subscription_id FROM subscriptions WHERE owner_id = ?", (owner_id,)).fetchone()
+    if existing:
+        cust_id = stripe_customer_id if stripe_customer_id else existing['stripe_customer_id']
+        sub_id = stripe_subscription_id if stripe_subscription_id else existing['stripe_subscription_id']
+        conn.execute("""
+            UPDATE subscriptions
+            SET stripe_customer_id = ?, stripe_subscription_id = ?, status = ?, current_period_end = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE owner_id = ?
+        """, (cust_id, sub_id, status, current_period_end, owner_id))
+    else:
+        conn.execute("""
+            INSERT INTO subscriptions (owner_id, stripe_customer_id, stripe_subscription_id, status, current_period_end)
+            VALUES (?, ?, ?, ?, ?)
+        """, (owner_id, stripe_customer_id, stripe_subscription_id, status, current_period_end))
+    conn.commit()
+    conn.close()
+    return True
+
+def get_subscription_by_customer(stripe_customer_id):
+    if not stripe_customer_id:
+        return None
+    conn = get_db_connection()
+    row = conn.execute("SELECT * FROM subscriptions WHERE stripe_customer_id = ?", (stripe_customer_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def get_subscription_by_sub_id(stripe_subscription_id):
+    if not stripe_subscription_id:
+        return None
+    conn = get_db_connection()
+    row = conn.execute("SELECT * FROM subscriptions WHERE stripe_subscription_id = ?", (stripe_subscription_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def update_subscription_status(status, stripe_customer_id=None, stripe_subscription_id=None, current_period_end=None):
+    conn = get_db_connection()
+    if stripe_subscription_id:
+        if current_period_end:
+            conn.execute("""
+                UPDATE subscriptions
+                SET status = ?, current_period_end = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE stripe_subscription_id = ?
+            """, (status, current_period_end, stripe_subscription_id))
+        else:
+            conn.execute("""
+                UPDATE subscriptions
+                SET status = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE stripe_subscription_id = ?
+            """, (status, stripe_subscription_id))
+    elif stripe_customer_id:
+        if current_period_end:
+            conn.execute("""
+                UPDATE subscriptions
+                SET status = ?, current_period_end = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE stripe_customer_id = ?
+            """, (status, current_period_end, stripe_customer_id))
+        else:
+            conn.execute("""
+                UPDATE subscriptions
+                SET status = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE stripe_customer_id = ?
+            """, (status, stripe_customer_id))
+    conn.commit()
+    conn.close()
+    return True
+
+def is_subscription_active(owner_id):
+    sub = get_owner_subscription(owner_id)
+    return sub.get('status') in ('active', 'trialing')
+
+# --- CHAT USAGE & QUOTA OPERATIONS ---
+
+def get_daily_chat_usage(owner_id, date_str=None):
+    from datetime import datetime
+    if not date_str:
+        date_str = datetime.today().strftime('%Y-%m-%d')
+    conn = get_db_connection()
+    row = conn.execute("SELECT count FROM chat_usage WHERE owner_id = ? AND date = ?", (owner_id, date_str)).fetchone()
+    conn.close()
+    return row['count'] if row else 0
+
+def increment_daily_chat_usage(owner_id, date_str=None):
+    from datetime import datetime
+    if not date_str:
+        date_str = datetime.today().strftime('%Y-%m-%d')
+    conn = get_db_connection()
+    conn.execute("""
+        INSERT INTO chat_usage (owner_id, date, count)
+        VALUES (?, ?, 1)
+        ON CONFLICT(owner_id, date) DO UPDATE SET count = count + 1
+    """, (owner_id, date_str))
+    conn.commit()
+    conn.close()
+    return True
+
+def check_chat_quota(owner_id, free_limit=None):
+    """
+    Returns (allowed: bool, remaining: int, is_paid: bool, total_limit: int)
+    """
+    if is_subscription_active(owner_id):
+        return True, -1, True, -1
+    
+    limit = free_limit if free_limit is not None else Config.FREE_DAILY_CHAT_LIMIT
+    usage = get_daily_chat_usage(owner_id)
+    remaining = max(0, limit - usage)
+    allowed = usage < limit
+    return allowed, remaining, False, limit
+
+# --- WEBHOOK IDEMPOTENCY OPERATIONS ---
+
+def is_event_processed(event_id):
+    conn = get_db_connection()
+    row = conn.execute("SELECT id FROM webhook_events WHERE event_id = ?", (event_id,)).fetchone()
+    conn.close()
+    return row is not None
+
+def record_processed_event(event_id, event_type):
+    conn = get_db_connection()
+    try:
+        conn.execute("INSERT INTO webhook_events (event_id, event_type) VALUES (?, ?)", (event_id, event_type))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        pass
+    finally:
+        conn.close()
+    return True
+

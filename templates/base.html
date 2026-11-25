@@ -57,6 +57,11 @@
                             <i class="fa-solid fa-users me-1"></i> Family Profiles
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/pricing' %}active{% endif %}" href="{{ url_for('billing.pricing_page') }}">
+                            <i class="fa-solid fa-gem text-warning me-1"></i> Pricing
+                        </a>
+                    </li>
                 </ul>
                 
                 <div class="d-flex align-items-center gap-3">

@@ -23,6 +23,16 @@ class Config:
     GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')
     GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-1.5-flash')
 
+    # Chat Quota Configuration
+    FREE_DAILY_CHAT_LIMIT = int(os.environ.get('FREE_DAILY_CHAT_LIMIT', 5))
+
+    # Stripe Billing Configuration
+    STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+    STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
+    STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
+    STRIPE_PRICE_ID = os.environ.get('STRIPE_PRICE_ID', '')
+    APP_BASE_URL = os.environ.get('APP_BASE_URL', 'http://127.0.0.1:5000')
+
     # system prompt for the Gemini model
     AGENT_INSTRUCTIONS = """
 You are an expert AI Nutrition Agent with a background in clinical dietetics and specialized expertise in Indian regional foods, dietary patterns, and lifestyle goals. Your tone is empathetic, encouraging, professional, and practical.

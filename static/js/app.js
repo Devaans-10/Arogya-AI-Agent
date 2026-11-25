@@ -239,13 +239,29 @@ function setupChatListeners() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ profile_id: profileId, message: message })
         })
-        .then(res => res.json())
-        .then(data => {
+        .then(async res => {
             indicator.classList.add("d-none");
+            const data = await res.json().catch(() => ({}));
+            
+            if (res.status === 402 || data.error === 'upgrade_required') {
+                const upgradeMsg = data.message || "Daily free chat limit reached. Upgrade to Pro for unlimited consultations.";
+                appendChatBubble('agent', `🔒 <strong>Daily Limit Reached</strong>: ${upgradeMsg} <br><br><a href="/pricing" class="btn btn-warning btn-sm fw-bold mt-1 text-dark"><i class="fa-solid fa-crown me-1"></i> Upgrade to Pro</a>`);
+                showChatUpgradeCard(upgradeMsg);
+                updateRemainingBadge(0);
+                chatBox.scrollTop = chatBox.scrollHeight;
+                return;
+            }
+
             if (data.success) {
                 appendChatBubble('agent', data.response);
+                if (data.remaining_messages !== undefined) {
+                    updateRemainingBadge(data.remaining_messages);
+                    if (data.remaining_messages <= 0 && !data.is_paid) {
+                        showChatUpgradeCard("You've used your free messages for today.");
+                    }
+                }
             } else {
-                appendChatBubble('agent', "⚠️ Error: " + data.message);
+                appendChatBubble('agent', "⚠️ Error: " + (data.message || "Unable to process request"));
             }
             chatBox.scrollTop = chatBox.scrollHeight;
         })
@@ -256,6 +272,34 @@ function setupChatListeners() {
             console.error(err);
         });
     });
+}
+
+function updateRemainingBadge(remaining) {
+    const headerCount = document.getElementById("remainingQuotaCount");
+    const sidebarCount = document.getElementById("sidebarRemainingCount");
+    if (headerCount) headerCount.innerText = remaining;
+    if (sidebarCount) sidebarCount.innerText = remaining;
+}
+
+function showChatUpgradeCard(msg) {
+    const actionArea = document.getElementById("chatActionArea");
+    if (!actionArea) return;
+    actionArea.innerHTML = `
+        <div class="card p-3 text-center border-warning bg-warning-subtle shadow-xs" id="chatUpgradeCard">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-3 text-start">
+                    <i class="fa-solid fa-lock text-warning fs-3"></i>
+                    <div>
+                        <h6 class="fw-bold mb-0 text-dark">Daily Free Chat Limit Reached</h6>
+                        <small class="text-muted">${msg || "Upgrade to Pro for unlimited AI Nutritionist chat."}</small>
+                    </div>
+                </div>
+                <a href="/pricing" class="btn btn-warning fw-bold text-dark px-3">
+                    <i class="fa-solid fa-crown me-1"></i> Upgrade to Pro
+                </a>
+            </div>
+        </div>
+    `;
 }
 
 function appendChatBubble(role, text) {

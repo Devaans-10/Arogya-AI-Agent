@@ -170,16 +170,33 @@ def chat():
             
         history = db.get_chat_history(profile_id)
         
+        # Enforce server-side quota and subscription checks
+        from routes.billing import get_current_owner_id
+        owner_id = get_current_owner_id()
+        allowed, remaining, is_paid, limit = db.check_chat_quota(owner_id)
+        if not allowed:
+            return jsonify({
+                'error': 'upgrade_required',
+                'message': f'Daily free chat limit reached ({limit} messages/day). Upgrade to Pro for unlimited AI Nutritionist chat.'
+            }), 402
+
         # Call Gemini service
         ai_response = gemini.generate_nutrition_chat_response(message, history, profile_data)
         
         # Save messages to database
         db.add_chat_message(profile_id, 'user', message)
         db.add_chat_message(profile_id, 'model', ai_response)
+
+        # Track usage for free tier
+        if not is_paid:
+            db.increment_daily_chat_usage(owner_id)
+            remaining = max(0, remaining - 1)
         
         return jsonify({
             'success': True,
-            'response': ai_response
+            'response': ai_response,
+            'remaining_messages': remaining,
+            'is_paid': is_paid
         })
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500

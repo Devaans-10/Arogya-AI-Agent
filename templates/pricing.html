@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4 animate-slide-up">
+    <div class="text-center mb-5">
+        <span class="badge bg-success-subtle text-success px-3 py-2 rounded-pill fw-semibold mb-2">
+            <i class="fa-solid fa-gem me-1"></i> Transparent Plans
+        </span>
+        <h2 class="fw-bold display-6">Simple, Honest Pricing</h2>
+        <p class="text-muted mx-auto" style="max-width: 600px;">
+            Enjoy essential health tools for free forever, or upgrade to <strong>Pro</strong> for unlimited clinical diet consultations with your AI Nutritionist.
+        </p>
+    </div>
+
+    <!-- Pricing Cards Grid -->
+    <div class="row row-cols-1 row-cols-md-2 g-4 justify-content-center mb-5">
+        <!-- Free Tier Card -->
+        <div class="col" style="max-width: 440px;">
+            <div class="card h-100 p-4 border shadow-sm position-relative {% if not is_paid %}border-success{% endif %}">
+                {% if not is_paid %}
+                <span class="position-absolute top-0 end-0 translate-middle badge rounded-pill bg-success px-3 py-2">
+                    Current Plan
+                </span>
+                {% endif %}
+                <div class="mb-3">
+                    <h4 class="fw-bold mb-1">Free Tier</h4>
+                    <p class="text-muted small">Everything you need to track daily family nutrition</p>
+                    <div class="display-6 fw-bold my-3">₹0 <span class="fs-6 fw-normal text-muted">/ month</span></div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="p-2 bg-light rounded text-center small mb-3 border border-secondary-subtle">
+                        <i class="fa-solid fa-comments text-success me-1"></i>
+                        <strong>{{ free_limit }} AI Chat Messages</strong> per day
+                        {% if not is_paid %}
+                        <div class="text-muted mt-1">({{ remaining_messages }} remaining today)</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <ul class="list-unstyled mb-4 small flex-grow-1">
+                    <li class="mb-2 d-flex align-items-center">
+                        <i class="fa-solid fa-check text-success me-2"></i>
+                        <span><strong>{{ free_limit }} daily AI chat</strong> consultations</span>
+                    </li>
+                    <li class="mb-2 d-flex align-items-center">
+                        <i class="fa-solid fa-check text-success me-2"></i>
+                        <span>Central Dashboard & 7-Day Calorie Tracker</span>
+                    </li>
+                    <li class="mb-2 d-flex align-items-center">
+                        <i class="fa-solid fa-check text-success me-2"></i>
+                        <span>AI Natural Language Food Logger</span>
+                    </li>
+                    <li class="mb-2 d-flex align-items-center">
+                        <i class="fa-solid fa-check text-success me-2"></i>
+                        <span>Interactive BMI Calculator</span>
+                    </li>
+                    <li class="mb-2 d-flex align-items-center">
+                        <i class="fa-solid fa-check text-success me-2"></i>
+                        <span>Personalized Meal Planner</span>
+                    </li>
+                    <li class="mb-2 d-flex align-items-center">
+                        <i class="fa-solid fa-check text-success me-2"></i>
+                        <span>Multi-Profile Family Support</span>
+                    </li>
+                </ul>
+
+                <div>
+                    {% if not is_paid %}
+                    <button class="btn btn-outline-secondary w-100 disabled py-2" disabled>
+                        <i class="fa-solid fa-check me-1"></i> Currently Active
+                    </button>
+                    {% else %}
+                    <a href="{{ url_for('main.chat_page') }}" class="btn btn-outline-secondary w-100 py-2">
+                        Included in Pro
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Pro Tier Card -->
+        <div class="col" style="max-width: 440px;">
+            <div class="card h-100 p-4 border-2 border-warning shadow position-relative">
+                <span class="position-absolute top-0 start-50 translate-middle badge rounded-pill bg-warning text-dark px-3 py-2 fw-bold shadow-xs">
+                    <i class="fa-solid fa-crown me-1"></i> RECOMMENDED
+                </span>
+                
+                <div class="mb-3 mt-2">
+                    <h4 class="fw-bold mb-1 text-warning">Pro Nutritionist</h4>
+                    <p class="text-muted small">Unlimited diet consultations for your whole household</p>
+                    <div class="display-6 fw-bold my-3 text-success">₹499 <span class="fs-6 fw-normal text-muted">/ month</span></div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="p-2 bg-warning-subtle rounded text-center small mb-3 fw-semibold border border-warning">
+                        <i class="fa-solid fa-infinity me-1"></i>
+                        Unlimited AI Nutritionist Chat
+                    </div>
+                </div>
+
+                <ul class="list-unstyled mb-4 small flex-grow-1">
+                    <li class="mb-2 d-flex align-items-center">
+                        <i class="fa-solid fa-star text-warning me-2"></i>
+                        <span><strong>Unlimited AI Chat</strong> (Zero daily caps)</span>
+                    </li>
+                    <li class="mb-2 d-flex align-items-center">
+                        <i class="fa-solid fa-check text-success me-2"></i>
+                        <span><strong>Household coverage</strong>: 1 plan covers all family profiles</span>
+                    </li>
+                    <li class="mb-2 d-flex align-items-center">
+                        <i class="fa-solid fa-check text-success me-2"></i>
+                        <span>Deep regional Indian cuisine & diabetic guidance</span>
+                    </li>
+                    <li class="mb-2 d-flex align-items-center">
+                        <i class="fa-solid fa-check text-success me-2"></i>
+                        <span>Unlimited custom meal plans & food logging</span>
+                    </li>
+                    <li class="mb-2 d-flex align-items-center">
+                        <i class="fa-solid fa-check text-success me-2"></i>
+                        <span>Customer Portal for 1-click cancel or card update</span>
+                    </li>
+                </ul>
+
+                <div>
+                    {% if is_paid %}
+                    <form action="{{ url_for('billing.create_customer_portal') }}" method="POST">
+                        <button type="submit" class="btn btn-warning w-100 py-2 fw-bold text-dark">
+                            <i class="fa-solid fa-gear me-1"></i> Manage Subscription & Portal
+                        </button>
+                    </form>
+                    {% else %}
+                    <form action="{{ url_for('billing.create_checkout_session') }}" method="POST">
+                        <button type="submit" class="btn btn-warning w-100 py-2 fw-bold text-dark shadow-sm">
+                            <i class="fa-solid fa-crown me-1"></i> Upgrade to Pro
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Medical & Educational Disclaimer Card -->
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <div class="alert alert-light border p-4 text-center text-muted small shadow-xs">
+                <i class="fa-solid fa-shield-heart text-danger fs-5 mb-2 d-block"></i>
+                <h6 class="fw-bold mb-1">Important Health Notice</h6>
+                <p class="mb-0">
+                    Arogya AI provides general nutrition, dietary wellness calculations, and meal ideas for informational and educational purposes only. It is <strong>not a medical service</strong> and does not provide medical diagnoses or therapeutic prescriptions. Always consult a physician, qualified healthcare professional, or registered dietitian before making major changes to your diet, especially if you have chronic medical conditions or allergies.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
